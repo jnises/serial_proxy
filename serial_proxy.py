@@ -94,6 +94,7 @@ class SerialProxy(HTTPChannel):
     requestFactory = SerialRequest
 
 
+# TODO i want to limit the number of connections to 1 per host. will this do that? or will it create non-persistant connections once it runs out of persistant ones?
 class SlowPool(client.HTTPConnectionPool):
     maxPersistentPerHost = 1
 
