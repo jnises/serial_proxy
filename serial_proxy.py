@@ -3,8 +3,9 @@
 from __future__ import absolute_import, print_function, unicode_literals
 import urlparse
 from twisted.web import http, client
-from twisted.web.http import Request, HTTPChannel
-from twisted.internet import reactor, Protocol
+from twisted.web.http import Request, HTTPChannel, HTTPFactory
+from twisted.internet import reactor
+from twisted.internet.protocol import Protocol
 from zope.interface import implements
 from twisted.internet.defer import succeed
 from twisted.web.iweb import IBodyProducer
@@ -44,6 +45,8 @@ class SerialProtocol(Protocol):
         
 
 class SerialRequest(Request):
+    ports = {'http': 80}
+
     def __init__(self, channel, queued, reactor = reactor):
         Request.__init__(self, channel, queued)
         self.reactor = reactor
@@ -78,15 +81,14 @@ class SerialRequest(Request):
         rest = urlparse.urlunparse(('', '') + parsed[2:])
         if not rest:
             rest = rest + '/'
-        class_ = self.protocols[protocol]
         headers = self.getAllHeaders().copy()
         if 'host' not in headers:
             headers['host'] = host
         headers.pop('proxy-connection', None)
         self.content.seek(0, 0)
         s = self.content.read()
-        d = self.channel.factory.agent.request(self.method, self.rest, headers, StringProducer(s))
-        d.addCallbacks(success, error, self, self)
+        d = self.channel.factory.agent.request(self.method, rest, headers, StringProducer(s))
+        d.addCallbacks(SerialRequest.success, SerialRequest.error, self, self)
 
 
 class SerialProxy(HTTPChannel):
@@ -97,9 +99,10 @@ class SerialProxyFactory(HTTPFactory):
     protocol = SerialProxy
     def __init__(self):
         HTTPFactory.__init__(self)
-        self.agent = client.Agent(self.reactor, pool = client.HTTPConnectionPool())
+        self.agent = client.Agent(reactor, pool = client.HTTPConnectionPool(reactor))
 
 
 if __name__ == '__main__':
     f = SerialProxyFactory()
-    reactor.ListenTcp(8080, f)
+    reactor.listenTCP(8080, f)
+    reactor.run()
