@@ -46,20 +46,14 @@ class SerialProtocol(Protocol):
             else:
                 log.msg('Error ', reason.getErrorMessage())
                 self.request.setResponseCode(501, 'Gateway error')
+        self.request.finish()
         
 
-def request_success(response, request):
-    # t.web.server.Request sets default values for these headers in its
-    # 'process' method. When these headers are received from the remote
-    # server, they ought to override the defaults, rather than append to
-    # them.
-    for key, value in response.headers.getAllRawHeaders():
-        if key.lower() in ['server', 'date', 'content-type']:
-            self.responseHeaders.setRawHeaders(key, [value])
-        else:
-            self.responseHeaders.addRawHeader(key, value)
-    self.setResponseCode(response.code)
-    response.deliverBody(SerialProtocol(request))
+def request_success(clientResponse, serverRequest):
+    serverRequest.setResponseCode(clientResponse.code)
+    serverRequest.responseHeaders = clientResponse.headers.copy()
+    clientResponse.deliverBody(SerialProtocol(serverRequest))
+
 
 def request_error(data, request):
     log.msg('Error ', data)
@@ -80,13 +74,12 @@ class SerialRequest(Request):
         parsed = urlparse.urlparse(self.uri)
         protocol = parsed[0]
         host = parsed[1]
-        headers = self.getAllHeaders().copy()
-        if 'host' not in headers:
-            headers['host'] = host
-        headers.pop('proxy-connection', None)
+        headers = self.requestHeaders.copy()
+        headers.setRawHeaders('host', [host])
+        headers.removeHeader('proxy-connection')
         self.content.seek(0, 0)
         s = self.content.read()
-        d = self.channel.factory.agent.request(self.method, self.uri, Headers(headers), StringProducer(s))
+        d = self.channel.factory.agent.request(self.method, self.uri, headers, StringProducer(s))
         d.addCallback(request_success, self)
         d.addErrback(request_error, self)
 
@@ -95,11 +88,15 @@ class SerialProxy(HTTPChannel):
     requestFactory = SerialRequest
 
 
+class SlowPool(client.HTTPConnectionPool):
+    maxPersistentPerHost = 1
+
 class SerialProxyFactory(HTTPFactory):
     protocol = SerialProxy
     def __init__(self):
         HTTPFactory.__init__(self)
-        self.agent = client.Agent(reactor, pool = client.HTTPConnectionPool(reactor))
+        #self.agent = client.Agent(reactor, pool = client.HTTPConnectionPool(reactor))
+        self.agent = client.Agent(reactor, pool = SlowPool(reactor))
 
 
 if __name__ == '__main__':
