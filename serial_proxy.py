@@ -1,5 +1,11 @@
 #!python
 
+'''
+An http proxy using twisted Agent to implement persistent connections.
+
+author: joel nises
+'''
+
 from __future__ import absolute_import, print_function#, unicode_literals
 import urlparse
 from twisted.web import http, client
