@@ -51,7 +51,6 @@ class SerialProtocol(Protocol):
                 log.msg('Possible data loss ', reason.getErrorMessage())
             else:
                 log.msg('Error ', reason.getErrorMessage())
-                self.request.setResponseCode(501, 'Gateway error')
         self.request.finish()
         
 
