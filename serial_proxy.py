@@ -70,8 +70,6 @@ def request_error(data, request):
 
 
 class SerialRequest(Request):
-    ports = {'http': 80}
-
     def __init__(self, channel, queued, reactor = reactor):
         Request.__init__(self, channel, queued)
         self.reactor = reactor
